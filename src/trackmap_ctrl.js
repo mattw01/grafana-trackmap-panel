@@ -1,6 +1,9 @@
 import L from './leaflet/leaflet.js';
 import moment from 'moment';
 
+import leafletPolycolor from './leaflet-polycolor/leaflet-polycolor.min.js';
+leafletPolycolor(L);
+
 import appEvents from 'app/core/app_events';
 import {MetricsPanelCtrl} from 'app/plugins/sdk';
 

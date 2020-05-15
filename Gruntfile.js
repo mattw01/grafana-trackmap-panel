@@ -37,7 +37,13 @@ module.exports = (grunt) => {
         expand: true,
         src: '*',
         dest: 'dist/leaflet/images/'
-      }
+      },
+      leaflet_polycolor: {
+        cwd: 'node_modules/leaflet-polycolor/dist/',
+        expand: true,
+        src: ['leaflet-polycolor.min.js'],
+        dest: 'dist/leaflet-polycolor/'
+      },
     },
 
     watch: {
