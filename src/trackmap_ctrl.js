@@ -1,6 +1,8 @@
 import L from './leaflet/leaflet.js';
 import moment from 'moment';
 
+import leafletPolycolor from './leaflet-polycolor/leaflet-polycolor.min.js';
+
 import appEvents from 'app/core/app_events';
 import {MetricsPanelCtrl} from 'app/plugins/sdk';
 
@@ -12,15 +14,28 @@ const panelDefaults = {
   autoZoom: true,
   scrollWheelZoom: false,
   defaultLayer: 'OpenStreetMap',
-  lineColor: 'red',
+  lineColor: '#f2495d',
   pointColor: 'royalblue',
+  gradientStartColor: '#f2495d',
+  gradientEndColor: '#73bf69'
 }
 
 function log(msg) {
   // uncomment for debugging
-  //console.log(msg);
+  console.log(msg);
 }
-
+function hexToRgbString(hex) {
+  const rgb = hexToRgb(hex);
+  return 'rgb(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ')';
+}
+function hexToRgb(hex) {
+  var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+}
 export class TrackMapCtrl extends MetricsPanelCtrl {
   constructor($scope, $injector) {
     super($scope, $injector);
@@ -28,6 +43,7 @@ export class TrackMapCtrl extends MetricsPanelCtrl {
     log("constructor");
 
     _.defaults(this.panel, panelDefaults);
+    leafletPolycolor(L);
 
     // Save layers globally in order to use them in options
     this.layers = {
@@ -271,9 +287,10 @@ export class TrackMapCtrl extends MetricsPanelCtrl {
   // Add the circles and polyline to the map
   addDataToMap() {
     log("addDataToMap");
-    this.polyline = L.polyline(
+    const colors = this.coords.map(x => x.color);
+    this.polyline = L.polycolor(
       this.coords.map(x => x.position, this), {
-        color: this.panel.lineColor,
+        colors: colors,
         weight: 3,
       }
     ).addTo(this.leafMap);
@@ -292,9 +309,9 @@ export class TrackMapCtrl extends MetricsPanelCtrl {
   refreshColors() {
     log("refreshColors");
     if (this.polyline) {
-      this.polyline.setStyle({
-        color: this.panel.lineColor
-      });
+      this.setupMap();
+      this.scaleData();
+      this.addDataToMap();
     }
     if (this.hoverMarker){
       this.hoverMarker.setStyle({
@@ -308,30 +325,73 @@ export class TrackMapCtrl extends MetricsPanelCtrl {
     log("onDataReceived");
     this.setupMap();
 
-    if (data.length === 0 || data.length !== 2) {
+    if (data.length === 0 || data.length > 3) {
       // No data or incorrect data, show a world map and abort
       this.leafMap.setView([0, 0], 1);
       return;
     }
+    const hasScaleData = data.length == 3 ? true : false;
 
     // Asumption is that there are an equal number of properly matched timestamps
     // TODO: proper joining by timestamp?
     this.coords.length = 0;
     const lats = data[0].datapoints;
     const lons = data[1].datapoints;
+    const scalars = data[2].datapoints;
+
     for (let i = 0; i < lats.length; i++) {
+      let scalar = null
+      // Validate lat and lng have values and timestamps match
       if (lats[i][0] == null || lons[i][0] == null ||
           lats[i][1] !== lons[i][1]) {
-        continue;
+        continue; // Coordinate is not valid
       }
+      if(hasScaleData) {
+        if (lats[i][0] == null || scalars[i][0] == null ||
+          lats[i][1] !== scalars[i][1]) {
+            scalar = 1; // Use max scale if point is missing scale data
+            // TODO: Find better handling of missing points, interpolate or use last value
+        }
+        else scalar = scalars[i][0];
+      }
+      else scalar = 1; // Use max scale if point is scale data not available
 
       this.coords.push({
         position: L.latLng(lats[i][0], lons[i][0]),
-        timestamp: lats[i][1]
+        timestamp: lats[i][1],
+        scalar: scalar,
       });
     }
+
+    this.scaleData();
+
     this.addDataToMap();
   }
+  scaleData() {
+    const maxScalar = Math.max(...this.coords.map(x => x. scalar));
+    const minScalar = Math.min(...this.coords.map(x => x.scalar));
+    log("Max: " + maxScalar);
+    log("Min: " + minScalar);
+
+    for (let i = 0; i < this.coords.length; i++) {
+      let currentCoord = this.coords[i];
+      const normalized = (currentCoord.scalar - minScalar) / (maxScalar - minScalar);
+      currentCoord.normalized = normalized;
+
+      const startRGB = hexToRgb(this.panel.gradientStartColor);
+      const endRGB = hexToRgb(this.panel.gradientEndColor);
+      log(startRGB);
+      log(endRGB);
+
+      const r = startRGB.r + normalized * (endRGB.r - startRGB.r);
+      const g = startRGB.g + normalized * (endRGB.g - startRGB.g);
+      const b = startRGB.b + normalized * (endRGB.b - startRGB.b);
+      currentCoord.color = 'rgb(' + r + ',' + g + ',' + b + ')';
+    }
+    log(this.coords);
+  }
+
+  
 
   onDataSnapshotLoad(snapshotData) {
     log("onSnapshotLoad");
