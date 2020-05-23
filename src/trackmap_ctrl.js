@@ -383,7 +383,7 @@ export class TrackMapCtrl extends MetricsPanelCtrl {
 
     for (let i = 0; i < this.coords.length; i++) {
       let currentCoord = this.coords[i];
-      const normalized = (currentCoord.scalar - minScalar) / (maxScalar - minScalar);
+      const normalized = (maxScalar === minScalar) ? 1 : (currentCoord.scalar - minScalar) / (maxScalar - minScalar);
       currentCoord.normalized = normalized;
 
       const r = startRGB.r + normalized * (endRGB.r - startRGB.r);
@@ -391,6 +391,7 @@ export class TrackMapCtrl extends MetricsPanelCtrl {
       const b = startRGB.b + normalized * (endRGB.b - startRGB.b);
       currentCoord.color = 'rgb(' + r + ',' + g + ',' + b + ')';
     }
+    log(this.coords);
   }
 
   onDataSnapshotLoad(snapshotData) {
