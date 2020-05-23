@@ -38,7 +38,6 @@
   },
   "dependencies": {
     "leaflet": "^1.5.1",
-    "leaflet-polycolor": "^0.9.1",
     "moment": "^2.22.2"
   }
 }
