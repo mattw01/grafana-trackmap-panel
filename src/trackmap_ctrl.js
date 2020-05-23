@@ -337,7 +337,7 @@ export class TrackMapCtrl extends MetricsPanelCtrl {
     this.coords.length = 0;
     const lats = data[0].datapoints;
     const lons = data[1].datapoints;
-    const scalars = data[2].datapoints;
+    const scalars = hasScaleData ? data[2].datapoints : null;
     let lastScalar = 1;
 
     for (let i = 0; i < lats.length; i++) {
